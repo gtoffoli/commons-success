@@ -7,6 +7,7 @@ import commons
 from commons.models import Project, OER, OerDocument, LearningPath, Folder, FolderDocument
 from commons.models import PROJECT_OPEN, PUBLISHED
 from commons.user_spaces import project_tree_as_list, folder_tree_as_list, tree_to_list, filter_documents
+import commons.api
 from commons.api import router
 # from commons.api import ProjectSerializer, FolderSerializer, FolderDocumentSerializer
 # from commons.api import OerSerializer, LearningPathSerializer
@@ -32,7 +33,7 @@ def project_tree_as_dict(project, request):
         tree['children'] = [project_tree_as_dict(child, request) for child in children]
     return tree
 
-class ProjectViewSet(commons.api.ProjectViewSet):
+class FilteredProjectViewSet(commons.api.ProjectViewSet):
     queryset = Project.objects.all().order_by('-created')
     serializer_class = ProjectSerializer
     http_method_names = ['head', 'get', 'post',]
@@ -42,18 +43,20 @@ class ProjectViewSet(commons.api.ProjectViewSet):
         data = project_tree_as_dict(community, request)
         return JsonResponse(data)
 
-router.register(r'success/projects', ProjectViewSet)
-
 class FolderSerializer(commons.api.FolderSerializer):
     class Meta:
         model = Folder
-        fields = ('id', 'title', 'project_name',)
+        fields = ('id', 'title', 'project_name', 'project_id', 'parent_id', 'n_documents',)
 
     project_name = serializers.SerializerMethodField()
     def get_project_name(self, obj):
         return obj.get_project().name
 
-class FolderViewSet(commons.api.FolderViewSet):
+    n_documents = serializers.SerializerMethodField()
+    def get_n_documents(self, obj):
+        return obj.documents.all().count()
+
+class FilteredFolderViewSet(commons.api.FolderViewSet):
     """ API endpoint for listing project folders. """
     serializer_class = FolderSerializer
 
@@ -70,8 +73,6 @@ class FolderViewSet(commons.api.FolderViewSet):
         data = serializer.data
         return JsonResponse(data, safe=False)
 
-router.register(r'success/folders', FolderViewSet)
-
 class OerSerializer(commons.api.OerSerializer):
     class Meta:
         model = OER
@@ -82,7 +83,7 @@ class OerSerializer(commons.api.OerSerializer):
     def get_n_attachments(self, obj):
         return OerDocument.objects.filter(oer_id=obj['id']).count()
 
-class OerViewSet(commons.api.OerViewSet):
+class FilteredOerViewSet(commons.api.OerViewSet):
     """ API endpoint for listing OERs. """
     serializer_class = OerSerializer
 
@@ -94,8 +95,6 @@ class OerViewSet(commons.api.OerViewSet):
         data = serializer.data
         return JsonResponse(data, safe=False)
 
-router.register(r'success/oers', OerViewSet)
-
 class LearningPathSerializer(commons.api.LearningPathSerializer):
     class Meta:
         model = LearningPath
@@ -103,7 +102,7 @@ class LearningPathSerializer(commons.api.LearningPathSerializer):
 
     local_path = serializers.ReadOnlyField(source='get_absolute_url')
 
-class LearningPathViewSet(commons.api.LearningPathViewSet):
+class FilteredLearningPathViewSet(commons.api.LearningPathViewSet):
     """ API endpoint for listing LPs. """
     serializer_class = LearningPathSerializer
 
@@ -114,9 +113,6 @@ class LearningPathViewSet(commons.api.LearningPathViewSet):
         serializer = self.serializer_class(queryset, many=True, context={'request': request})
         data = serializer.data
         return JsonResponse(data, safe=False)
-
-router.register(r'success/lps', LearningPathViewSet)
-
 
 class FolderDocumentSerializer(commons.api.FolderDocumentSerializer):
     class Meta:
@@ -131,7 +127,7 @@ class FolderDocumentSerializer(commons.api.FolderDocumentSerializer):
     def get_project(self, obj):
         return obj.folder.get_project().name
 
-class FolderDocumentViewSet(commons.api.FolderDocumentViewSet):
+class FilteredFolderDocumentViewSet(commons.api.FolderDocumentViewSet):
     """ API endpoint for listing documents in project folders. """
     serializer_class = FolderDocumentSerializer
 
@@ -152,4 +148,11 @@ class FolderDocumentViewSet(commons.api.FolderDocumentViewSet):
         data = serializer.data
         return JsonResponse(data, safe=False)
 
-router.register(r'success/folder_documents', FolderDocumentViewSet)
+def register_filtered_endpoints():
+    router.register(r'success/projects', FilteredProjectViewSet)
+    router.register(r'success/folders', FilteredFolderViewSet)
+    router.register(r'success/oers', FilteredOerViewSet)
+    router.register(r'success/lps', FilteredLearningPathViewSet)
+    router.register(r'success/folder_documents', FilteredFolderDocumentViewSet)
+
+register_filtered_endpoints()
