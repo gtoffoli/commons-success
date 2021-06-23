@@ -87,11 +87,20 @@ class FilteredOerViewSet(commons.api.OerViewSet):
     """ API endpoint for listing OERs. """
     serializer_class = OerSerializer
 
+    def get_queryset(self):
+        community = Project.objects.get(slug=root)
+        projects = tree_to_list(project_tree_as_list(community))
+        queryset = super(FilteredOerViewSet, self).get_queryset()
+        return queryset.filter(project__in=projects, state=PUBLISHED).values().order_by('-modified')
+
     def list(self, request):
+        """
         community = Project.objects.get(slug=root)
         projects = tree_to_list(project_tree_as_list(community))
         queryset = OER.objects.filter(project__in=projects, state=PUBLISHED).values().order_by('-modified')
         serializer = self.serializer_class(queryset, many=True, context={'request': request})
+        """
+        serializer = self.serializer_class(self.get_queryset(), many=True, context={'request': request})
         data = serializer.data
         return JsonResponse(data, safe=False)
 
@@ -106,11 +115,20 @@ class FilteredLearningPathViewSet(commons.api.LearningPathViewSet):
     """ API endpoint for listing LPs. """
     serializer_class = LearningPathSerializer
 
+    def get_queryset(self):
+        community = Project.objects.get(slug=root)
+        projects = tree_to_list(project_tree_as_list(community))
+        queryset = super(FilteredLearningPathViewSet, self).get_queryset()
+        return queryset.filter(project__in=projects, state=PUBLISHED).values().order_by('-modified')
+
     def list(self, request):
+        """
         community = Project.objects.get(slug=root)
         projects = tree_to_list(project_tree_as_list(community))
         queryset = LearningPath.objects.filter(project__in=projects, state=PUBLISHED).values().order_by('-modified')
         serializer = self.serializer_class(queryset, many=True, context={'request': request})
+        """
+        serializer = self.serializer_class(self.get_queryset(), many=True, context={'request': request})
         data = serializer.data
         return JsonResponse(data, safe=False)
 
