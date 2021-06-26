@@ -34,9 +34,8 @@ def project_tree_as_dict(project, request):
     return tree
 
 class FilteredProjectViewSet(commons.api.ProjectViewSet):
-    queryset = Project.objects.all().order_by('-created')
     serializer_class = ProjectSerializer
-    http_method_names = ['head', 'get', 'post',]
+    http_method_names = ['get', 'head', 'options',]
 
     def list(self, request):
         community = Project.objects.get(slug=root)
@@ -59,6 +58,7 @@ class FolderSerializer(commons.api.FolderSerializer):
 class FilteredFolderViewSet(commons.api.FolderViewSet):
     """ API endpoint for listing project folders. """
     serializer_class = FolderSerializer
+    http_method_names = ['get', 'head', 'options',]
 
     def list(self, request):
         community = Project.objects.get(slug=root)
@@ -86,6 +86,7 @@ class OerSerializer(commons.api.OerSerializer):
 class FilteredOerViewSet(commons.api.OerViewSet):
     """ API endpoint for listing OERs. """
     serializer_class = OerSerializer
+    http_method_names = ['get', 'head', 'options',]
 
     def get_queryset(self):
         community = Project.objects.get(slug=root)
@@ -114,6 +115,7 @@ class LearningPathSerializer(commons.api.LearningPathSerializer):
 class FilteredLearningPathViewSet(commons.api.LearningPathViewSet):
     """ API endpoint for listing LPs. """
     serializer_class = LearningPathSerializer
+    http_method_names = ['get', 'head', 'options',]
 
     def get_queryset(self):
         community = Project.objects.get(slug=root)
@@ -148,6 +150,7 @@ class FolderDocumentSerializer(commons.api.FolderDocumentSerializer):
 class FilteredFolderDocumentViewSet(commons.api.FolderDocumentViewSet):
     """ API endpoint for listing documents in project folders. """
     serializer_class = FolderDocumentSerializer
+    http_method_names = ['get', 'head', 'options',]
 
     def list(self, request):
         community = Project.objects.get(slug=root)
