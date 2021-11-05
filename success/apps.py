@@ -2,7 +2,7 @@
 from django.apps import AppConfig
 import commons
 
-class HealthConfig(AppConfig):
+class SuccessConfig(AppConfig):
     name = 'success'
 
     def ready(self):

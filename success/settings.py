@@ -13,7 +13,7 @@ from commons.settings import *
 SITE_ID = 4
 SITE_NAME = 'SUCCESSxALL'
 
-WSGI_APPLICATION = 'health.wsgi.application'
+WSGI_APPLICATION = 'success.wsgi.application'
 ROOT_URLCONF = 'success.urls'
 
 PROJECT_TITLE = 'SUCCESSxALL - Supporting success for all people'
