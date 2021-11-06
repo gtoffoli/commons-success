@@ -11,11 +11,11 @@ TEST_DOMAIN = None
 from commons.settings import *
 
 SITE_ID = 4
-SITE_NAME = 'SUCCESSxALL'
+SITE_NAME = 'SUCCESS4ALL'
 
 WSGI_APPLICATION = 'success.wsgi.application'
 ROOT_URLCONF = 'success.urls'
 
-PROJECT_TITLE = 'SUCCESSxALL - Supporting success for all people'
+PROJECT_TITLE = 'SUCCESS4ALL - Supporting success for all people'
 PROJECT_NAME = 'success'
 LOGIN_REDIRECT_URL = 'success.home'
