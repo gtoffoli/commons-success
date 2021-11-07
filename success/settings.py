@@ -12,6 +12,7 @@ from commons.settings import *
 
 SITE_ID = 4
 SITE_NAME = 'SUCCESS4ALL'
+SITE_ROOT = 'success-erasmus'
 
 WSGI_APPLICATION = 'success.wsgi.application'
 ROOT_URLCONF = 'success.urls'
