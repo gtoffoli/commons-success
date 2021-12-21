@@ -6,11 +6,11 @@ HAS_SAML2 = False # supports the SSO interface provided by the Up2U project (www
 HAS_LRS = False # supports xAPI?
 HAS_EARMASTER = False # supports import and processing of the data exported from the EarMaster application ?
 
+from commons.settings import *
+
 PRIMARY_DOMAIN = 'success4all.commonspaces.eu'
 SECONDARY_DOMAIN = None
 TEST_DOMAIN = None
-
-from commons.settings import *
 
 SITE_ID = 4
 SITE_NAME = 'SUCCESS4ALL'
