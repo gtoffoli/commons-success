@@ -1,18 +1,57 @@
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
+from django.db.models import Q
 from django.views.decorators.csrf import csrf_exempt
+from django.contrib.contenttypes.models import ContentType
+from django.contrib.auth.decorators import login_required
 
 from rest_framework import routers, serializers, viewsets
+from rest_framework.permissions import IsAuthenticated
+from actstream.models import Action
 
 import commons
-from commons.models import Project, OER, OerDocument, LearningPath, Folder, FolderDocument
+from commons.models import User, Project, OER, OerDocument, LearningPath, Folder, FolderDocument
+from commons.models import site_member_users
 from commons.models import PROJECT_OPEN, PUBLISHED
 from commons.user_spaces import project_tree_as_list, folder_tree_as_list, tree_to_list, filter_documents
-import commons.api
-from commons.api import router
-# from commons.api import ProjectSerializer, FolderSerializer, FolderDocumentSerializer
-# from commons.api import OerSerializer, LearningPathSerializer
+from commons.api import router, make_contenttype_dict
+from commons.api import UserProjectSerializer
 
 root = 'success-erasmus'
+
+class UserSerializer(commons.api.UserSerializer):
+    class Meta:
+        model = User
+        # exclude = ('user_permissions',)
+        # fields = ('id', 'username', 'first_name', 'last_name', 'email', 'date_joined', 'groups',)
+        # depth = 1
+        fields = ('id', 'username', 'first_name', 'last_name', 'email', 'date_joined',)
+ 
+    # groups = UserProjectSerializer(many=True)
+
+    # bypass method re-definition in parent class
+    def to_representation(self, instance):
+        representation = serializers.HyperlinkedModelSerializer.to_representation(self, instance)
+        return representation
+
+class FilteredUserViewSet(commons.api.UserViewSet):
+    """
+    API endpoint that allows users to be viewed or edited.
+    """
+    serializer_class = UserSerializer
+    http_method_names = ['get', 'head', 'options']
+    filterset_fields = ('id', 'username', 'email', 'first_name', 'last_name')
+
+    def get_queryset(self):
+        queryset = site_member_users()
+        return queryset
+
+    def list(self, request):
+        if not request.user.is_authenticated or not request.user in site_member_users():
+            return HttpResponse(403, 'Permission Denied')
+        queryset = self.get_queryset()
+        serializer = self.serializer_class(queryset, many=True, context={'request': request})
+        data = serializer.data
+        return JsonResponse(data, safe=False)
 
 class ProjectSerializer(commons.api.ProjectSerializer):
 
@@ -95,12 +134,6 @@ class FilteredOerViewSet(commons.api.OerViewSet):
         return queryset.filter(project__in=projects, state=PUBLISHED).values().order_by('-modified')
 
     def list(self, request):
-        """
-        community = Project.objects.get(slug=root)
-        projects = tree_to_list(project_tree_as_list(community))
-        queryset = OER.objects.filter(project__in=projects, state=PUBLISHED).values().order_by('-modified')
-        serializer = self.serializer_class(queryset, many=True, context={'request': request})
-        """
         serializer = self.serializer_class(self.get_queryset(), many=True, context={'request': request})
         data = serializer.data
         return JsonResponse(data, safe=False)
@@ -124,12 +157,6 @@ class FilteredLearningPathViewSet(commons.api.LearningPathViewSet):
         return queryset.filter(project__in=projects, state=PUBLISHED).values().order_by('-modified')
 
     def list(self, request):
-        """
-        community = Project.objects.get(slug=root)
-        projects = tree_to_list(project_tree_as_list(community))
-        queryset = LearningPath.objects.filter(project__in=projects, state=PUBLISHED).values().order_by('-modified')
-        serializer = self.serializer_class(queryset, many=True, context={'request': request})
-        """
         serializer = self.serializer_class(self.get_queryset(), many=True, context={'request': request})
         data = serializer.data
         return JsonResponse(data, safe=False)
@@ -169,11 +196,58 @@ class FilteredFolderDocumentViewSet(commons.api.FolderDocumentViewSet):
         data = serializer.data
         return JsonResponse(data, safe=False)
 
+CONTENTTYPE_DICT = {}
+class ActionSerializer(commons.api.ActionSerializer):
+    class Meta:
+        model = Action
+        # fields = ('actor_object_id', 'verb', 'action_object_content_type_id', 'action_object_object_id', 'target_content_type_id', 'target_object_id', 'description', 'timestamp')
+        fields = ('actor_object_id', 'verb', 'object_type', 'action_object_object_id', 'target_type', 'target_object_id', 'description', 'timestamp')
+
+    object_type = serializers.SerializerMethodField()
+    def get_object_type(self, obj):
+        global CONTENTTYPE_DICT
+        return CONTENTTYPE_DICT[obj.action_object_content_type_id]
+    target_type = serializers.SerializerMethodField()
+    def get_target_type(self, obj):
+        target_type_id = obj.target_content_type_id
+        global CONTENTTYPE_DICT
+        return target_type_id and CONTENTTYPE_DICT[target_type_id] or ''
+
+class FilteredActionViewSet(commons.api.ActionViewSet):
+    """ API endpoint for listing actions in stream filtered by project. """
+    serializer_class = ActionSerializer
+    http_method_names = ['get', 'head', 'options',]
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self, max_actions=0):
+        global CONTENTTYPE_DICT
+        CONTENTTYPE_DICT = make_contenttype_dict()
+        community = Project.objects.get(slug=root)
+        projects = tree_to_list(project_tree_as_list(community))
+        project_ids = [project.id for project in projects]
+        project_content_type = ContentType.objects.get_for_model(Project)
+        queryset = Action.objects.filter(Q(Q(action_object_content_type=project_content_type) & Q(action_object_object_id__in=project_ids)) | Q(Q(target_content_type=project_content_type) & Q(target_object_id__in=project_ids)))
+        if max_actions:
+            queryset = queryset[:max_actions]
+        return queryset
+
+    # @permission_classes([IsAuthenticated])
+    def list(self, request, max_actions=1000):
+        if not request.user.is_authenticated or not request.user in site_member_users():
+            return HttpResponse(403, 'Permission Denied')
+        queryset = self.get_queryset(max_actions=max_actions)
+        serializer = self.serializer_class(queryset, many=True, context={'request': request})
+        data = serializer.data
+        return JsonResponse(data, safe=False)
+
+
 def register_filtered_endpoints():
+    router.register(r'success/users', FilteredUserViewSet)
     router.register(r'success/projects', FilteredProjectViewSet)
     router.register(r'success/folders', FilteredFolderViewSet)
     router.register(r'success/oers', FilteredOerViewSet)
     router.register(r'success/lps', FilteredLearningPathViewSet)
     router.register(r'success/folder_documents', FilteredFolderDocumentViewSet)
+    router.register(r'success/actions', FilteredActionViewSet)
 
 register_filtered_endpoints()
