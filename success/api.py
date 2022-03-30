@@ -1,10 +1,12 @@
 from django.http import JsonResponse, HttpResponse
 from django.db.models import Q
 from django.views.decorators.csrf import csrf_exempt
+from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.auth.decorators import login_required
 
 from rest_framework import routers, serializers, viewsets
+from rest_framework.settings import api_settings
 from rest_framework.permissions import IsAuthenticated
 from actstream.models import Action
 
@@ -17,6 +19,9 @@ from commons.api import router, make_contenttype_dict
 from commons.api import UserProjectSerializer
 
 root = 'success-erasmus'
+
+def has_authorization(request):
+    return request.user.is_authenticated and request.user in site_member_users()
 
 class UserSerializer(commons.api.UserSerializer):
     class Meta:
@@ -46,7 +51,7 @@ class FilteredUserViewSet(commons.api.UserViewSet):
         return queryset
 
     def list(self, request):
-        if not request.user.is_authenticated or not request.user in site_member_users():
+        if not has_authorization(request):
             return HttpResponse(403, 'Permission Denied')
         queryset = self.get_queryset()
         serializer = self.serializer_class(queryset, many=True, context={'request': request})
@@ -77,6 +82,8 @@ class FilteredProjectViewSet(commons.api.ProjectViewSet):
     http_method_names = ['get', 'head', 'options',]
 
     def list(self, request):
+        if not has_authorization(request):
+            return HttpResponse(403, 'Permission Denied')
         community = Project.objects.get(slug=root)
         data = project_tree_as_dict(community, request)
         return JsonResponse(data)
@@ -100,6 +107,8 @@ class FilteredFolderViewSet(commons.api.FolderViewSet):
     http_method_names = ['get', 'head', 'options',]
 
     def list(self, request):
+        if not has_authorization(request):
+            return HttpResponse(403, 'Permission Denied')
         community = Project.objects.get(slug=root)
         projects = tree_to_list(project_tree_as_list(community))
         folders = []
@@ -134,6 +143,8 @@ class FilteredOerViewSet(commons.api.OerViewSet):
         return queryset.filter(project__in=projects, state=PUBLISHED).values().order_by('-modified')
 
     def list(self, request):
+        if not has_authorization(request):
+            return HttpResponse(403, 'Permission Denied')
         serializer = self.serializer_class(self.get_queryset(), many=True, context={'request': request})
         data = serializer.data
         return JsonResponse(data, safe=False)
@@ -157,6 +168,8 @@ class FilteredLearningPathViewSet(commons.api.LearningPathViewSet):
         return queryset.filter(project__in=projects, state=PUBLISHED).values().order_by('-modified')
 
     def list(self, request):
+        if not has_authorization(request):
+            return HttpResponse(403, 'Permission Denied')
         serializer = self.serializer_class(self.get_queryset(), many=True, context={'request': request})
         data = serializer.data
         return JsonResponse(data, safe=False)
@@ -180,6 +193,8 @@ class FilteredFolderDocumentViewSet(commons.api.FolderDocumentViewSet):
     http_method_names = ['get', 'head', 'options',]
 
     def list(self, request):
+        if not has_authorization(request):
+            return HttpResponse(403, 'Permission Denied')
         community = Project.objects.get(slug=root)
         projects = tree_to_list(project_tree_as_list(community))
         folders = []
@@ -233,7 +248,7 @@ class FilteredActionViewSet(commons.api.ActionViewSet):
 
     # @permission_classes([IsAuthenticated])
     def list(self, request, max_actions=1000):
-        if not request.user.is_authenticated or not request.user in site_member_users():
+        if not has_authorization(request):
             return HttpResponse(403, 'Permission Denied')
         queryset = self.get_queryset(max_actions=max_actions)
         serializer = self.serializer_class(queryset, many=True, context={'request': request})
