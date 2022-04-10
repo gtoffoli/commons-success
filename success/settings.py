@@ -42,3 +42,6 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.BasicAuthentication',
     ]
 }
+
+SESSION_COOKIE_SAMESITE = 'None'
+SESSION_COOKIE_SECURE = True
