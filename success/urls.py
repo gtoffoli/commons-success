@@ -9,6 +9,7 @@ import commons.views
 
 urlpatterns = [
     url(r"^$", views.home, name="success.home"),
+    url(r"^raise", views.raise_exception, name="raise_exception"),
     url(r'^', include('commons.urls')),
 ]
 
